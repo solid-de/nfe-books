@@ -22,23 +22,30 @@ import edu.cnam.nfe101.books.assembler.BookDetailsAssembler;
 import edu.cnam.nfe101.books.dto.BookDetails;
 import edu.cnam.nfe101.books.dto.BookSummary;
 import edu.cnam.nfe101.books.dto.CustomItemsListModel;
+import edu.cnam.nfe101.books.dto.NewBook;
+import edu.cnam.nfe101.books.exceptions.AuthorNotFoundException;
 import edu.cnam.nfe101.books.exceptions.BookNotFoundException;
+import edu.cnam.nfe101.books.model.Author;
 import edu.cnam.nfe101.books.model.Book;
+import edu.cnam.nfe101.books.repository.AuthorRepository;
 import edu.cnam.nfe101.books.repository.BookRepository;
 
 @RestController
 @RequestMapping("/books")
 public class BookController {
 	private final BookRepository bookRepository;
+
+	private final AuthorRepository authorRepository;
 	
 	private final BookAssembler bookAssembler;
 	private final BookDetailsAssembler bookDetailsAssembler;
 
-	public BookController(BookAssembler bookAssembler, BookDetailsAssembler bookDetailsAssembler,
-			BookRepository bookRepository) {
+	public BookController(BookRepository bookRepository, AuthorRepository authorRepository, BookAssembler bookAssembler,
+			BookDetailsAssembler bookDetailsAssembler) {
+		this.bookRepository = bookRepository;
+		this.authorRepository = authorRepository;
 		this.bookAssembler = bookAssembler;
 		this.bookDetailsAssembler = bookDetailsAssembler;
-		this.bookRepository = bookRepository;
 	}
 
 	@GetMapping
@@ -54,10 +61,16 @@ public class BookController {
 	}
 
 	@PostMapping
-	public ResponseEntity<?> newBook(@RequestBody Book newBook) {
+	public ResponseEntity<?> newBook(@RequestBody NewBook newBook) {
 
-		// FIXME: author
-		EntityModel<BookDetails> entityModel = bookDetailsAssembler.toModel(bookRepository.save(newBook));
+		Author author = authorRepository.findById(newBook.authorId())
+		.orElseThrow(() -> new AuthorNotFoundException(newBook.authorId()));
+
+		Book newBookEntity = new Book();
+		newBookEntity.setAuthor(author);
+		newBookEntity.setTitle(newBook.title());
+		
+		EntityModel<BookDetails> entityModel = bookDetailsAssembler.toModel(bookRepository.save(newBookEntity));
 
 		return ResponseEntity //
 				.created(entityModel.getRequiredLink(IanaLinkRelations.SELF).toUri()) //
