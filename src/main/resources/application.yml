@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: nfe-books
+  datasource:
+    url: jdbc:h2:file:/Users/laabidiraissi/Documents/pro/cours/2024-2025/cnam/nfe101/data/books
+    username: sa
+    password: password
+    driverClassName: org.h2.Driver
+    continue-on-error: true
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: none
+      id.db_structure_naming_strategy: legacy
+  sql:
+    init:
+      mode: always
+  h2:
+    console.enabled: true      
+
+#http://localhost:8080/h2-console      
