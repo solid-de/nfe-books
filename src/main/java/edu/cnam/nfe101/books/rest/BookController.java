@@ -52,7 +52,7 @@ public class BookController {
 	public CustomItemsListModel<BookSummary> all() {
 
 		List<EntityModel<BookSummary>> books = bookRepository.findAll().stream() //
-				.map(bookAssembler::toModel) //
+				.map(entity -> bookAssembler.toModel(entity)) //
 				.collect(Collectors.toList());
 
 		CustomItemsListModel<BookSummary> booksModel = new CustomItemsListModel<>(books)
@@ -64,7 +64,7 @@ public class BookController {
 	public ResponseEntity<?> newBook(@RequestBody NewBook newBook) {
 
 		Author author = authorRepository.findById(newBook.authorId())
-		.orElseThrow(() -> new AuthorNotFoundException(newBook.authorId()));
+			.orElseThrow(() -> new AuthorNotFoundException(newBook.authorId()));
 
 		Book newBookEntity = new Book();
 		newBookEntity.setAuthor(author);
