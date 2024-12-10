@@ -1,12 +1,6 @@
 package edu.cnam.nfe101.books.rest;
 
-import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
-
 import java.util.List;
-import java.util.stream.Collectors;
-
-import org.springframework.hateoas.EntityModel;
-import org.springframework.hateoas.IanaLinkRelations;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,12 +11,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import edu.cnam.nfe101.books.assembler.BookAssembler;
-import edu.cnam.nfe101.books.assembler.BookDetailsAssembler;
+import edu.cnam.nfe101.books.dto.AuthorDetails;
 import edu.cnam.nfe101.books.dto.BookDetails;
 import edu.cnam.nfe101.books.dto.BookSummary;
-import edu.cnam.nfe101.books.dto.CustomItemsListModel;
 import edu.cnam.nfe101.books.dto.NewBook;
+import edu.cnam.nfe101.books.dto.UpdateBook;
 import edu.cnam.nfe101.books.exceptions.AuthorNotFoundException;
 import edu.cnam.nfe101.books.exceptions.BookNotFoundException;
 import edu.cnam.nfe101.books.model.Author;
@@ -33,77 +26,75 @@ import edu.cnam.nfe101.books.repository.BookRepository;
 @RestController
 @RequestMapping("/books")
 public class BookController {
-	private final BookRepository bookRepository;
 
+	private final BookRepository bookRepository;
 	private final AuthorRepository authorRepository;
 	
-	private final BookAssembler bookAssembler;
-	private final BookDetailsAssembler bookDetailsAssembler;
 
-	public BookController(BookRepository bookRepository, AuthorRepository authorRepository, BookAssembler bookAssembler,
-			BookDetailsAssembler bookDetailsAssembler) {
+	public BookController(BookRepository bookRepository, AuthorRepository authorRepository) {
 		this.bookRepository = bookRepository;
 		this.authorRepository = authorRepository;
-		this.bookAssembler = bookAssembler;
-		this.bookDetailsAssembler = bookDetailsAssembler;
 	}
 
 	@GetMapping
-	public CustomItemsListModel<BookSummary> all() {
+	public ResponseEntity<List<BookSummary>> all() {
 
-		List<EntityModel<BookSummary>> books = bookRepository.findAll().stream() //
-				.map(entity -> bookAssembler.toModel(entity)) //
-				.collect(Collectors.toList());
-
-		CustomItemsListModel<BookSummary> booksModel = new CustomItemsListModel<>(books)
-				.add(linkTo(methodOn(BookController.class).all()).withSelfRel());
-		return booksModel;
+		List<BookSummary> books = bookRepository.findAll().stream() //
+				.map(entity -> new BookSummary(entity.getBookId(), entity.getTitle())) //
+				.toList();
+		return ResponseEntity.ok()
+				.body(books);
 	}
 
 	@PostMapping
-	public ResponseEntity<?> newBook(@RequestBody NewBook newBook) {
+	public ResponseEntity<BookDetails> newBook(@RequestBody NewBook newBook) {
 
 		Author author = authorRepository.findById(newBook.authorId())
 			.orElseThrow(() -> new AuthorNotFoundException(newBook.authorId()));
-
 		Book newBookEntity = new Book();
 		newBookEntity.setAuthor(author);
 		newBookEntity.setTitle(newBook.title());
-		
-		EntityModel<BookDetails> entityModel = bookDetailsAssembler.toModel(bookRepository.save(newBookEntity));
+		Book createdBook = bookRepository.save(newBookEntity);
+		AuthorDetails authorDetails = new AuthorDetails(author.getAuthorId(), author.getName(), author.getBio(), author.getCountry());
+		BookDetails bookDetails = new BookDetails(createdBook.getBookId(), createdBook.getTitle(), authorDetails);
 
 		return ResponseEntity //
-				.created(entityModel.getRequiredLink(IanaLinkRelations.SELF).toUri()) //
-				.body(entityModel);
+				.ok() //
+				.body(bookDetails);
 	}
 
 	@GetMapping("/{id}")
-	public EntityModel<BookDetails> one(@PathVariable Integer id) {
+	public ResponseEntity<BookDetails> one(@PathVariable Integer id) {
 
 		Book book = bookRepository.findById(id) //
 				.orElseThrow(() -> new BookNotFoundException(id));
 
-		return bookDetailsAssembler.toModel(book);
+		Author author = book.getAuthor();
+		AuthorDetails authorDetails = new AuthorDetails(author.getAuthorId(), author.getName(), author.getBio(), author.getCountry());
+		BookDetails bookDetails = new BookDetails(book.getBookId(), book.getTitle(), authorDetails);
+		return ResponseEntity //
+				.ok() //
+				.body(bookDetails);
 	}
 
 	@PutMapping("/{id}")
-	public ResponseEntity<?> replaceBook(@RequestBody Book newBook, @PathVariable Integer id) {
+	public ResponseEntity<?> replaceBook(@RequestBody UpdateBook newBook, @PathVariable Integer id) {
 
 		Book updatedBook = bookRepository.findById(id) //
 				.map(book -> {
-					book.setTitle(newBook.getTitle());
+					book.setTitle(newBook.title());
 
 					return bookRepository.save(book);
 				})
-				.orElseGet(() -> {
-					return bookRepository.save(newBook);
-				});
+				.orElseThrow(() -> new BookNotFoundException(id));
 
-		EntityModel<BookDetails> entityModel = bookDetailsAssembler.toModel(updatedBook);
+		Author author = updatedBook.getAuthor();
+		AuthorDetails authorDetails = new AuthorDetails(author.getAuthorId(), author.getName(), author.getBio(), author.getCountry());
+		BookDetails bookDetails = new BookDetails(updatedBook.getBookId(), updatedBook.getTitle(), authorDetails);
 
-		return ResponseEntity
-				.created(entityModel.getRequiredLink(IanaLinkRelations.SELF).toUri()) //
-				.body(entityModel);
+		return ResponseEntity //
+				.ok() //
+				.body(bookDetails);
 	}
 
 	@DeleteMapping("/{id}")
